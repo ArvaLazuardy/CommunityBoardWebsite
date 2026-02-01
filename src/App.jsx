@@ -12,14 +12,17 @@ function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
+  // for transforming each username into an email, so there's no need for actual emails
   const transformUsername = (user) => `${user.toLowerCase().trim()}@placeholderemail.com`;
 
+  // SIGN UP & LOGIN
   async function handleSignUp(user, pass) {
     const { data, error } = await supabase.auth.signUp({
       email: transformUsername(user),
       password: pass
     });
     
+    // Create profile for new user
     if (!error && data.user) {
       await supabase.from('profiles').insert([{
         id: data.user.id,
@@ -39,6 +42,7 @@ function App() {
     return { error };
   }
 
+  // Fetch username from profile when session loads
   useEffect(() => {
     if (session) {
       fetchUsername();
@@ -57,41 +61,50 @@ function App() {
     }
   }
 
+  // check session on load
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
+  // LOGOUT
   async function handleLogout() {
     await supabase.auth.signOut();
   }
 
+  // get posts with reactions and comments
   async function fetchPosts() {
     const { data } = await supabase
       .from('posts')
       .select('*, reactions(vote_type, user_id), comments(*, reactions(vote_type, user_id))')
       .order('created_at', { ascending: false });
+    // get likes/dislikes count
     const formattedPosts = data.map(post => {
       const likes = post.reactions.filter(r => r.vote_type === 'like').length;
       const dislikes = post.reactions.filter(r => r.vote_type === 'dislike').length;
+      // sort comments by created_at(timestamp)
       const sortedComments = post.comments.sort((a, b) =>
         new Date(a.created_at) - new Date(b.created_at)
       );
+      // get likes/dislikes for comments
       const formattedComments = sortedComments.map(comment => ({
         ...comment,
         likes: comment.reactions?.filter(r => r.vote_type === 'like').length || 0,
         dislikes: comment.reactions?.filter(r => r.vote_type === 'dislike').length || 0
       }));
+      // return post with counts and formatted comments
       return { ...post, likes, dislikes, comments: formattedComments };
     });
     setPosts(formattedPosts);
   }
 
+  // fetch posts on load and after any change
   useEffect(() => {
     fetchPosts();
   }, []);
 
+  // Create Post
   async function createPost(content) {
     if (!content) return;
     await supabase.from('posts').insert([{
@@ -99,6 +112,7 @@ function App() {
       author: username,
       user_id: session.user.id
     }]);
+    // refresh posts
     fetchPosts();
   }
 
@@ -112,6 +126,7 @@ function App() {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
+  // Soft Delete for Posts (doesn't remove, just marks as deleted sort of like reddit)
   async function deletePost(id) {
     await supabase
       .from('posts')
@@ -121,9 +136,11 @@ function App() {
         author: username
       })
       .eq('id', id);
+    // refresh posts
     fetchPosts();
   }
 
+  // Soft Delete for Comments
   async function deleteComment(commentId) {
     await supabase.from('comments').update({
       is_deleted: true,
@@ -133,6 +150,7 @@ function App() {
     fetchPosts();
   }
 
+  // add comment or reply
   async function addComment(postId, commentText, parentId = null) {
     if (!commentText) return;
     await supabase.from('comments').insert([{
@@ -145,10 +163,13 @@ function App() {
     fetchPosts();
   }
 
+  // handle likes and dislikes for posts and comments
   async function handleReaction(id, type, target = 'post') {
     if (!session) return;
+    // Determine id based on target
     const column = target === 'post' ? 'post_id' : 'comment_id';
 
+    // Check if reaction exists
     const { data: existing } = await supabase
       .from('reactions')
       .select('*')
@@ -156,7 +177,9 @@ function App() {
       .eq('user_id', session.user.id)
       .single();
 
+    // if exists, update or delete
     if (existing) {
+      // remove reaction if same type or update to new type
       if (existing.vote_type === type) {
         await supabase
           .from('reactions')
@@ -169,6 +192,7 @@ function App() {
           .eq('id', existing.id);
       }
 
+      // if not exists, create new reaction
     } else {
       await supabase
         .from('reactions')
@@ -177,6 +201,7 @@ function App() {
     fetchPosts();
   }
 
+  // If no session, show login/register form
   if (!session) {
     if (isRegistering) {
       return (
@@ -194,6 +219,7 @@ function App() {
     );
   }
 
+  // Main App UI
   if (showProfile) {
     return (
       <Profile
