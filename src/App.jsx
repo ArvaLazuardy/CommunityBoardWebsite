@@ -411,7 +411,6 @@ function CommentItem({ comment, allComments, postId, session, handleReaction, de
           </div>
         )}
       </div>
-      {/* RECURSION: The child replies are rendered inside the parent component */}
       {childReplies.map(reply => (
         <CommentItem key={reply.id} comment={reply} allComments={allComments} postId={postId} session={session} handleReaction={handleReaction} deleteComment={deleteComment} addComment={addComment} />
       ))}
