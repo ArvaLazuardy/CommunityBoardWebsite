@@ -20,10 +20,15 @@ function Register({ onRegister, onSwitchToLogin }) {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-8">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8">
+        
+        <h1 className="text-5xl font-bold text-blue-300 pb-10">
+            <span className="text-blue-600">Z</span> Community Board
+        </h1>
+
         <div className="bg-gray-800 p-8 rounded-2xl border border-gray-700 w-full max-w-md shadow-2xl">
-            <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">Z Register</h1>
-            {message && (
+            <h1 className="text-3xl font-bold mb-8 text-center text-blue-200">
+                <span className="text-blue-600">Z</span> Register</h1>            {message && (
             <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
                 {message}
             </div>
@@ -57,7 +62,7 @@ function Register({ onRegister, onSwitchToLogin }) {
             </button>
             </div>
         </div>
-        </div>
+    </div>
     );
     }
 
