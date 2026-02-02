@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CommentItem from './CommentItem';
 
-function PostItem({ post, session, handleReaction, deletePost, addComment, deleteComment, formatTime }) {
+function PostItem({ post, session, handleReaction, deletePost, addComment, deleteComment, formatTime, onViewProfile }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const myVote = post.reactions?.find(r => r.user_id === session?.user?.id)?.vote_type;
@@ -9,7 +9,12 @@ function PostItem({ post, session, handleReaction, deletePost, addComment, delet
   return (
     <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-md">
       <div className="flex justify-between items-start mb-2">
-        <span className="text-blue-400 text-sm font-bold">{post.author}</span>
+        <button 
+          onClick={() => onViewProfile(post.user_id)}
+          className="text-blue-400 text-sm font-bold hover:text-blue-300 hover:underline"
+        >
+          {post.author}
+        </button>
         <span className="text-gray-400 text-xs">{formatTime(post.created_at)}</span>
       </div>
 
@@ -17,12 +22,12 @@ function PostItem({ post, session, handleReaction, deletePost, addComment, delet
         {post.content}
       </p>
       <div className="flex items-center space-x-6 border-t border-gray-700 pt-3">
-        {!post.is_deleted && (
+        {/* if post is not deleted show likes/dislikes*/}
+        {!post.is_deleted && ( 
           <>
-            {/* Likes/Dislikes Buttons */}
             <button
               onClick={() => handleReaction(post.id, 'like', 'post')}
-              className={`flex items-center space-x-1 ${myVote === 'like' ? 'text-green-400 font-bold' : 'text-gray-400'}`}
+              className={`flex items-center space-x-1 ${myVote === 'like' ? 'text-green-400 hover:text-green-500 font-bold' : 'text-gray-400 hover:text-blue-400'}`}
             >
               <span>👍</span>
               <span>{post.likes || 0}</span>
@@ -30,7 +35,7 @@ function PostItem({ post, session, handleReaction, deletePost, addComment, delet
 
             <button
               onClick={() => handleReaction(post.id, 'dislike', 'post')}
-              className={`flex items-center space-x-1 ${myVote === 'dislike' ? 'text-red-400 font-bold' : 'text-gray-400'}`}
+              className={`flex items-center space-x-1 ${myVote === 'dislike' ? 'text-red-400 hover:text-red-500 font-bold' : 'text-gray-400 hover:text-blue-400'}`}
             >
               <span>👎</span>
               <span>{post.dislikes || 0}</span>
@@ -38,7 +43,7 @@ function PostItem({ post, session, handleReaction, deletePost, addComment, delet
           </>
         )}
 
-        {/* Comments Toggle */}
+        {/* Open Comments */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="text-gray-400 hover:text-blue-400 text-sm font-bold flex items-center space-x-1"
@@ -72,10 +77,11 @@ function PostItem({ post, session, handleReaction, deletePost, addComment, delet
               deleteComment={deleteComment}
               addComment={addComment}
               formatTime={formatTime}
+              onViewProfile={onViewProfile}
             />
           ))}
 
-          {/* Add Comment Input */}
+          {/* Comment Input */}
           <div className="mt-4 flex flex-col space-y-2">
             <textarea
               placeholder="Write a comment..."

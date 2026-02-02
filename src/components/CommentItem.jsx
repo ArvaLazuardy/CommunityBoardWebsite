@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function CommentItem({ comment, allComments, postId, session, handleReaction, deleteComment, addComment, formatTime }) {
+function CommentItem({ comment, allComments, postId, session, handleReaction, deleteComment, addComment, formatTime, onViewProfile }) {
   const [isReplying, setIsReplying] = useState(false);
   const [replyInput, setReplyInput] = useState('');
   const childReplies = allComments.filter(c => c.parent_comment_id === comment.id);
@@ -10,7 +10,12 @@ function CommentItem({ comment, allComments, postId, session, handleReaction, de
     <div className="mt-3 ml-4 pl-4 border-l border-gray-700">
       <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-600">
         <div className="flex justify-between text-xs mb-1">
-          <span className="text-blue-400 font-bold">{comment.author}</span>
+          <button
+            onClick={() => onViewProfile(comment.user_id)}
+            className="text-blue-400 font-bold hover:text-blue-300 hover:underline"
+          >
+            {comment.author}
+          </button>
           <span className="text-gray-400">{formatTime(comment.created_at)}</span>
         </div>
         <p className={`text-gray-200 text-sm mb-2 ${comment.is_deleted ? 'italic text-gray-400' : ''}`}>
@@ -21,13 +26,13 @@ function CommentItem({ comment, allComments, postId, session, handleReaction, de
             <>
               <button
                 onClick={() => handleReaction(comment.id, 'like', 'comment')}
-                className={myVote === 'like' ? 'text-green-400 font-bold' : 'text-gray-400'}
+                className={myVote === 'like' ? 'text-green-400 hover:text-gray-600 font-bold' : 'text-gray-400 hover:text-gray-600'}
               >
                 👍 {comment.likes}
               </button>
               <button
                 onClick={() => handleReaction(comment.id, 'dislike', 'comment')}
-                className={myVote === 'dislike' ? 'text-red-400 font-bold' : 'text-gray-400'}
+                className={myVote === 'dislike' ? 'text-red-400 hover:text-gray-600 font-bold' : 'text-gray-400 hover:text-gray-600'}
               >
                 👎 {comment.dislikes}
               </button>
@@ -69,7 +74,7 @@ function CommentItem({ comment, allComments, postId, session, handleReaction, de
           </div>
         )}
       </div>
-      {/* RECURSION: The child replies are rendered inside the parent component */}
+      {/* this is for comments within comments */}
       {childReplies.map(reply => (
         <CommentItem
           key={reply.id}
@@ -81,10 +86,11 @@ function CommentItem({ comment, allComments, postId, session, handleReaction, de
           deleteComment={deleteComment}
           addComment={addComment}
           formatTime={formatTime}
+          onViewProfile={onViewProfile}
         />
       ))}
     </div>
   );
 }
 
-export default CommentItem;
+export default CommentItem; 

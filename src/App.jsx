@@ -11,18 +11,17 @@ function App() {
   const [username, setUsername] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [viewedUserId, setViewedUserId] = useState(null); 
 
   // for transforming each username into an email, so there's no need for actual emails
   const transformUsername = (user) => `${user.toLowerCase().trim()}@placeholderemail.com`;
 
-  // SIGN UP & LOGIN
   async function handleSignUp(user, pass) {
     const { data, error } = await supabase.auth.signUp({
       email: transformUsername(user),
       password: pass
     });
     
-    // Create profile for new user
     if (!error && data.user) {
       await supabase.from('profiles').insert([{
         id: data.user.id,
@@ -42,7 +41,6 @@ function App() {
     return { error };
   }
 
-  // Fetch username from profile when session loads
   useEffect(() => {
     if (session) {
       fetchUsername();
@@ -61,50 +59,52 @@ function App() {
     }
   }
 
-  // check session on load
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session)); // this checks if user is logged in when page loads  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session)); // if something changes check the session
     return () => subscription.unsubscribe();
   }, []);
 
-  // LOGOUT
   async function handleLogout() {
     await supabase.auth.signOut();
+    setShowProfile(false);
+    setViewedUserId(null);
   }
 
-  // get posts with reactions and comments
+  async function handleViewProfile(userId) {
+    setViewedUserId(userId);
+    setShowProfile(true);
+  }
+  // UNDERSTAND THIS FUNCTION BETTER
   async function fetchPosts() {
     const { data } = await supabase
       .from('posts')
       .select('*, reactions(vote_type, user_id), comments(*, reactions(vote_type, user_id))')
       .order('created_at', { ascending: false });
-    // get likes/dislikes count
+
     const formattedPosts = data.map(post => {
       const likes = post.reactions.filter(r => r.vote_type === 'like').length;
       const dislikes = post.reactions.filter(r => r.vote_type === 'dislike').length;
-      // sort comments by created_at(timestamp)
+
       const sortedComments = post.comments.sort((a, b) =>
         new Date(a.created_at) - new Date(b.created_at)
       );
-      // get likes/dislikes for comments
+
       const formattedComments = sortedComments.map(comment => ({
         ...comment,
         likes: comment.reactions?.filter(r => r.vote_type === 'like').length || 0,
         dislikes: comment.reactions?.filter(r => r.vote_type === 'dislike').length || 0
       }));
-      // return post with counts and formatted comments
+
       return { ...post, likes, dislikes, comments: formattedComments };
     });
     setPosts(formattedPosts);
   }
 
-  // fetch posts on load and after any change
-  useEffect(() => {
+  useEffect(() => { // this fetch posts when any changes happen
     fetchPosts();
   }, []);
 
-  // Create Post
   async function createPost(content) {
     if (!content) return;
     await supabase.from('posts').insert([{
@@ -126,7 +126,7 @@ function App() {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  // Soft Delete for Posts (doesn't remove, just marks as deleted sort of like reddit)
+  // Soft Delete for Posts & Comments (doesn't remove, just marks as deleted sort of like reddit)
   async function deletePost(id) {
     await supabase
       .from('posts')
@@ -136,11 +136,9 @@ function App() {
         author: username
       })
       .eq('id', id);
-    // refresh posts
     fetchPosts();
   }
 
-  // Soft Delete for Comments
   async function deleteComment(commentId) {
     await supabase.from('comments').update({
       is_deleted: true,
@@ -150,7 +148,6 @@ function App() {
     fetchPosts();
   }
 
-  // add comment or reply
   async function addComment(postId, commentText, parentId = null) {
     if (!commentText) return;
     await supabase.from('comments').insert([{
@@ -163,13 +160,11 @@ function App() {
     fetchPosts();
   }
 
-  // handle likes and dislikes for posts and comments
   async function handleReaction(id, type, target = 'post') {
     if (!session) return;
-    // Determine id based on target
-    const column = target === 'post' ? 'post_id' : 'comment_id';
 
-    // Check if reaction exists
+    const column = target === 'post' ? 'post_id' : 'comment_id'; // determine either post or comment
+
     const { data: existing } = await supabase
       .from('reactions')
       .select('*')
@@ -177,10 +172,8 @@ function App() {
       .eq('user_id', session.user.id)
       .single();
 
-    // if exists, update or delete
-    if (existing) {
-      // remove reaction if same type or update to new type
-      if (existing.vote_type === type) {
+    if (existing) { // remove if same type or change reaction if different type
+      if (existing.vote_type === type) { 
         await supabase
           .from('reactions')
           .delete()
@@ -192,8 +185,7 @@ function App() {
           .eq('id', existing.id);
       }
 
-      // if not exists, create new reaction
-    } else {
+    } else { // create new reaction
       await supabase
         .from('reactions')
         .insert([{ [column]: id, user_id: session.user.id, vote_type: type }]);
@@ -201,7 +193,7 @@ function App() {
     fetchPosts();
   }
 
-  // If no session, show login/register form
+  // if session is null, show login/register
   if (!session) {
     if (isRegistering) {
       return (
@@ -219,26 +211,34 @@ function App() {
     );
   }
 
-  // Main App UI
+  // if show profiel is true, show profile
   if (showProfile) {
     return (
       <Profile
         session={session}
         username={username}
-        onBack={() => setShowProfile(false)}
+        currentUserId={session.user.id}
+        viewedUserId={viewedUserId}
+        onBack={() => {
+          setShowProfile(false);
+          setViewedUserId(null);
+        }}
+        onViewProfile={handleViewProfile}
+        onLogout={handleLogout}
         supabase={supabase}
       />
     );
   }
 
-  return (
+  return ( // default state is feed
     <Feed
       session={session}
       username={username}
       posts={posts}
       onLogout={handleLogout}
       onCreatePost={createPost}
-      onShowProfile={() => setShowProfile(true)}
+      onShowProfile={() => handleViewProfile(null)} // View own profile
+      onViewProfile={handleViewProfile} // NEW: Pass down to view other profiles
       handleReaction={handleReaction}
       deletePost={deletePost}
       addComment={addComment}
